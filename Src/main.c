@@ -123,38 +123,47 @@ int main(void)
 
   while (1)
   {
+    /* USER CODE END WHILE */
+    /* USER CODE BEGIN 3 */
+    // ---- Heartbeat LED ----
+    static uint32_t last_heartbeat_time = 0;
+    if (HAL_GetTick() - last_heartbeat_time >= 500) // Cada 500 ms
+    {
+      HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin); // Cambia el estado del LED LD2
+      last_heartbeat_time = HAL_GetTick();
+    }
+
     // ---- Procesamiento del Botón ----
     if (button_flag == 1)
     {
-      // Enviar mensaje UART
-      sprintf(tx_buffer, "Acceso solicitado ----- CONCEDIDO.\r\n");
+      // 1. Encender LED Externo
+      HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_SET); // Enciende LED_EXT
+
+      // 2. Calcular cuándo apagarlo (3 segundos desde ahora)
+      led_ext_off_time = HAL_GetTick() + 3000;
+
+      // 3. Enviar mensaje por UART
+      sprintf(tx_buffer, "Boton B1 presionado! LED EXT ON.\r\n");
       HAL_UART_Transmit(&huart2, (uint8_t *)tx_buffer, strlen(tx_buffer), 100);
 
-      // Encender ambos LEDs (interno y externo)
-      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_SET);
-
-      // Guardar el tiempo actual para contar 4 segundos
-      access_start_time = HAL_GetTick();
-      access_mode = 1; // Activamos modo de acceso
-
-      // Limpiar flag del botón para evitar múltiples lecturas
+      // 4. Limpiar el flag
       button_flag = 0;
     }
 
-    // Espera de 4 segundos
-    if (access_mode == 1 && HAL_GetTick() - access_start_time >= 4000)
+    // ---- Control del Apagado del LED Externo ----
+    // Si el tiempo de apagado es distinto de 0 (significa que está programado)
+    // y ya hemos alcanzado o superado ese tiempo...
+    if (led_ext_off_time != 0 && HAL_GetTick() >= led_ext_off_time)
     {
-      // Apagar ambos LEDs
-      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_RESET);
+      // 1. Apagar el LED
+      HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_RESET); // Apaga LED_EXT
 
-      // Enviar mensaje UART
-      sprintf(tx_buffer, "Sistema CERRADO.\r\n");
+      // 2. Enviar mensaje por UART (opcional)
+      sprintf(tx_buffer, "LED EXT OFF (timeout).\r\n");
       HAL_UART_Transmit(&huart2, (uint8_t *)tx_buffer, strlen(tx_buffer), 100);
 
-      // Salir del modo de acceso
-      access_mode = 0;
+      // 3. Resetear el tiempo de apagado a 0 (para no volver a apagarlo)
+      led_ext_off_time = 0;
     }
   }
 
