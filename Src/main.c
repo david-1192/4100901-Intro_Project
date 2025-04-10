@@ -121,10 +121,10 @@ int main(void)
   uint32_t access_start_time = 0;
   uint8_t access_mode = 0; // 0: normal, 1: en espera para apagar LD2
 
+  /*---Ejercicio de La guía #1, LD2 heartbeat, LED_EXTERNO
   while (1)
   {
-    /* USER CODE END WHILE */
-    /* USER CODE BEGIN 3 */
+    
     // ---- Heartbeat LED ----
     static uint32_t last_heartbeat_time = 0;
     if (HAL_GetTick() - last_heartbeat_time >= 500) // Cada 500 ms
@@ -166,7 +166,45 @@ int main(void)
       led_ext_off_time = 0;
     }
   }
+  */
 
+  //---Ejercicio Práctico #1 LD2, LED EXTERNO controlados por el Botón, diferentes mensajes en consola
+  while (1)
+  {
+    // ---- Procesamiento del Botón ----
+    if (button_flag == 1)
+    {
+      // Enviar mensaje UART
+      sprintf(tx_buffer, "Acceso solicitado ----- CONCEDIDO.\r\n");
+      HAL_UART_Transmit(&huart2, (uint8_t *)tx_buffer, strlen(tx_buffer), 100);
+
+      // Encender ambos LEDs (interno y externo)
+      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_SET);
+
+      // Guardar el tiempo actual para contar 4 segundos
+      access_start_time = HAL_GetTick();
+      access_mode = 1; // Activamos modo de acceso
+
+      // Limpiar flag del botón para evitar múltiples lecturas
+      button_flag = 0;
+    }
+
+    // Espera de 4 segundos
+    if (access_mode == 1 && HAL_GetTick() - access_start_time >= 4000)
+    {
+      // Apagar ambos LEDs
+      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_RESET);
+
+      // Enviar mensaje UART
+      sprintf(tx_buffer, "Sistema CERRADO.\r\n");
+      HAL_UART_Transmit(&huart2, (uint8_t *)tx_buffer, strlen(tx_buffer), 100);
+
+      // Salir del modo de acceso
+      access_mode = 0;
+    }
+  }
   /* USER CODE END 3 */
 }
 
